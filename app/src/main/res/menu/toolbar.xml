@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:title="Search" android:id="@+id/search"
+        app:showAsAction="ifRoom" android:icon="@android:drawable/ic_menu_search">
+    </item>
+    <item android:title="Accept" android:id="@+id/accpet"
+        app:showAsAction="ifRoom" android:icon="@android:drawable/stat_sys_vp_phone_call_on_hold">
+    </item>
+    <item  android:title="Disconnecrt" android:id="@+id/cancel"
+        app:showAsAction="ifRoom" android:icon="@android:drawable/ic_menu_close_clear_cancel">
+        </item>
+</menu>
