@@ -1,33 +1,30 @@
 package com.scenery.chatdesign.activities;
 
+import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
-import android.nfc.tech.IsoDep;
+import android.content.DialogInterface;
+import android.graphics.drawable.ColorDrawable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.text.method.KeyListener;
-import android.view.KeyEvent;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ListView;
-import android.widget.SimpleAdapter;
 
 import com.scenery.chatdesign.R;
 import com.scenery.chatdesign.adapters.MsgItemAdapter;
 import com.scenery.chatdesign.models.UserMsg;
 
-import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.HashMap;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
@@ -36,28 +33,19 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
-import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ListView;
+import android.widget.PopupWindow;
 import android.widget.Toast;
 
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import android.view.MenuItem;
+
 public class MainActivity extends AppCompatActivity {
     //````````````````````````````````
     private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
@@ -75,10 +63,28 @@ public class MainActivity extends AppCompatActivity {
 
     private  Object obj = new Object();
     private boolean search_mutex;
-    private volatile boolean IsOpen;
     private Handler subhandler;
     private Handler UIhandler;
 
+    // popup
+    PopupWindow popupWindow;
+    View popupView;
+    ProgressDialog pDialog;
+
+    private void showDevicePopup() {
+        if (popupWindow == null) {
+            popupWindow = new PopupWindow(popupView,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            popupWindow.setFocusable(true);
+
+            ColorDrawable dw = new ColorDrawable(0xeedddddd);
+            popupWindow.setBackgroundDrawable(dw);
+            popupWindow.setAnimationStyle(android.R.style.Animation_InputMethod);
+        }
+
+        popupWindow.showAtLocation(MainActivity.this.findViewById(R.id.main), Gravity.BOTTOM, 0, 0);
+    }
 
     //宠物
     private PetInfo pet;
@@ -99,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
         text = (EditText) findViewById(R.id.MsgText);
         sendButton = (ImageButton) findViewById(R.id.sendBtn);
 
-        UserMsg msg = new UserMsg("Hello", false);
+        UserMsg msg = new UserMsg("Hello", UserMsg.SYSTEM_MSG);
         list.add(msg);
 
         ListView listView = (ListView) findViewById(R.id.MsgView);
@@ -140,14 +146,35 @@ public class MainActivity extends AppCompatActivity {
         enable.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 3600); //3600为蓝牙设备可见时间
         startActivity(enable);
 
+        // popup
+        LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        popupView = inflater.inflate(R.layout.device_popup, null);
+        pDialog = new ProgressDialog(this);
+        pDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        pDialog.setMessage("Waiting to connect...");
+        pDialog.setIndeterminate(true);
+        pDialog.setCancelable(true);
+        pDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                try {
+                    subhandler.sendEmptyMessage(1);
+                }catch (Exception e) {}
+            }
+        });
+
+        listview = (ListView) popupView.findViewById(R.id.deviceList);
+
         //开启搜索蓝牙
 
-        listview = (ListView) findViewById(R.id.deviceList);
+        //listview = (ListView) findViewById(R.id.deviceList);
         mAdaptor = new ArrayAdapter<String>(this, android.R.layout.simple_expandable_list_item_1,devices);
         listview.setAdapter(mAdaptor);
         listview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (popupWindow != null)
+                    popupWindow.dismiss();
                 new ConnectThread(deviceList.get(position)).start();
             }
         });
@@ -180,18 +207,36 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case 0:
                         getSupportActionBar().setTitle(msg.obj.toString());
-                        ViewGroup.LayoutParams params = listview.getLayoutParams();
-                        params.height = 0;
-                        listview.setLayoutParams(params);
+                        list.add(new UserMsg("Connection established.", UserMsg.SYSTEM_MSG));
+                        simpleAdapter.notifyDataSetChanged();
+                        if (popupWindow != null)
+                            popupWindow.dismiss();
+//                        ViewGroup.LayoutParams params = listview.getLayoutParams();
+//                        params.height = 0;
+//                        listview.setLayoutParams(params);
                         break;
                     case 1:
-                        ViewGroup.LayoutParams params2 = listview.getLayoutParams();
-                        params2.height = 100;
-                        listview.setLayoutParams(params2);
+//                        ViewGroup.LayoutParams params2 = listview.getLayoutParams();
+//                        params2.height = 100;
+//                        listview.setLayoutParams(params2);
                         getSupportActionBar().setTitle(R.string.app_name);
+                        list.add(new UserMsg("Connection closed.", UserMsg.SYSTEM_MSG));
+                        simpleAdapter.notifyDataSetChanged();
+                        break;
+                    case 2:
+                        pDialog.show();
+                        break;
+                    case 3:
+                        pDialog.hide();
+                        break;
+                    case 4:
+                        list.add(new UserMsg("Connection failed", UserMsg.SYSTEM_MSG));
+                        simpleAdapter.notifyDataSetChanged();
+                        break;
                 }
             }
         };
+
 
     }
 
@@ -199,19 +244,26 @@ public class MainActivity extends AppCompatActivity {
         switch (item.getItemId()) {
             case R.id.search:
                 SearchDevices();
+                showDevicePopup();
                 return true;
             case R.id.accpet:
-                if (AcceptPushThread == null || !AcceptPushThread.isAlive()) {
+                if (AcceptPushThread == null || AcceptPushThread.isAlive()==false) {
                     AcceptPushThread = new AcceptThread();
                     AcceptPushThread.start();
-                    IsOpen = true;
+                    synchronized (MY_UUID) {
+                        try {
+                            MY_UUID.wait();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    subhandler.sendEmptyMessage(2);
                 }
                 return true;
             case R.id.cancel:
-                if (IsOpen) {
-                    IsOpen = false;
+                try {
                     subhandler.sendEmptyMessage(1);
-                }
+                }catch (Exception e) {}
                 return true;
             //                 return super.onOptionsItemSelected(item);
         }
@@ -317,11 +369,10 @@ public class MainActivity extends AppCompatActivity {
                 // until it succeeds or throws an exception
                 Log.i("TAG", "thread start");
                 socket.connect();
-                socket.getRemoteDevice();
+
                 if (socket == null) {
                     UIhandler.sendEmptyMessage(-2);
                 } else {
-                    IsOpen = true;
                     out = new DataOutputStream(socket.getOutputStream());
                     Message Titlemsg = Message.obtain();
                     Titlemsg.obj = mmDevice.getName();
@@ -339,14 +390,16 @@ public class MainActivity extends AppCompatActivity {
                                     //msg send
                                     case 0:
                                         sendMessage = msg.obj.toString();
-
                                         out.writeUTF(sendMessage);
-
-                                        UserMsg umsg = new UserMsg(sendMessage, true);
+                                        UserMsg umsg = new UserMsg(sendMessage, UserMsg.SEND_MSG);
                                         list.add(umsg);
                                         UIhandler.sendEmptyMessage(-1);
                                         break;
                                     case 1:
+                                        UIhandler.sendEmptyMessage(1);
+                                        getLooper().quit();
+                                        break;
+                                    case 3:
                                         UIhandler.sendEmptyMessage(1);
                                         getLooper().quit();
                                         break;
@@ -360,6 +413,7 @@ public class MainActivity extends AppCompatActivity {
                     Looper.loop();
                 }
             } catch (IOException connectException) {
+                UIhandler.sendEmptyMessage(4);
                 // Unable to connect; close the socket and get out
                 //return;
             } finally {
@@ -370,8 +424,9 @@ public class MainActivity extends AppCompatActivity {
                     socket = null;
                     out = null;
                     subhandler.removeCallbacksAndMessages(null);
+                    Log.i("out", "close socket in Con");
                 } catch (Exception e)  {
-                    Log.i("Con", "close socket");
+
                 }
             }
 
@@ -398,31 +453,14 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void run() {
-            while (IsOpen) {
+            while (true) {
                 try {
                     tmp = in.readUTF();
-                    UserMsg rmsg = new UserMsg(tmp, false);
+                    UserMsg rmsg = new UserMsg(tmp, UserMsg.RECEIVE_MSG);
                     list.add(rmsg);
                     UIhandler.sendEmptyMessage(-1);
-                    //byte[] buffer = new byte[1024];
-//                    if (socket.getInputStream().read(buffer) != -1) {
-//                        //在这里处理byte转string类型
-//                        String conv = "";
-//                        char c;
-//                        for (int i = 0; i < 1024; i++) {
-//                            if (buffer[i] == 36) {
-//                                break;
-//                            }
-//                            c = (char) buffer[i];
-//                            conv = conv + c;
-//                        }
-//                        UserMsg rmsg = new UserMsg(conv, false);
-//                        list.add(rmsg);
-//                        UIhandler.sendEmptyMessage(-1);
-//                    }
-
                 } catch (IOException e) {
-                    subhandler.sendEmptyMessage(1);
+                    subhandler.sendEmptyMessage(3);
                     try {
                         sleep(1);
                     } catch (InterruptedException e1) {
@@ -461,20 +499,7 @@ public class MainActivity extends AppCompatActivity {
         public void run() {
             //BluetoothSocket socket;
             // Keep listening until exception occurs or a socket is returned
-            try {
-                socket = mmServerSocket.accept();
-                if (socket != null) {
-                    out = new DataOutputStream(socket.getOutputStream());
-                    Message Titlemsg = Message.obtain();
-                    Titlemsg.obj = socket.getRemoteDevice().getName();
-                    Titlemsg.what = 0;
-                    UIhandler.sendMessage(Titlemsg);
-                    new ManageSocket().start();
-                }
-            } catch (Exception e) {
-
-            }
-            while (IsOpen) {
+            while (true) {
                 if (Looper.myLooper() == null) {
                     Looper.prepare();
                     subhandler = new Handler() {
@@ -487,26 +512,34 @@ public class MainActivity extends AppCompatActivity {
                                         sendMessage = msg.obj.toString();
                                         out.writeUTF(sendMessage);
 
-                                        UserMsg umsg = new UserMsg(sendMessage, true);
+                                        UserMsg umsg = new UserMsg(sendMessage, UserMsg.SEND_MSG);
                                         list.add(umsg);
                                         UIhandler.sendEmptyMessage(-1);
                                         break;
                                     case 1:
+                                        Log.i("out", "close socket in AC");
                                         out.close();
                                         out = null;
                                         UIhandler.sendEmptyMessage(1);
-                                        if (IsOpen == false) {
-                                            getLooper().quit();
-                                        } else {
-                                            socket = mmServerSocket.accept();
-                                            if (socket != null) {
-                                                out = new DataOutputStream(socket.getOutputStream());
-                                                Message Titlemsg = Message.obtain();
-                                                Titlemsg.obj = socket.getRemoteDevice().getName();
-                                                Titlemsg.what = 0;
-                                                UIhandler.sendMessage(Titlemsg);
-                                                new ManageSocket().start();
-                                            }
+                                        socket.close();
+                                        socket = null;
+                                        getLooper().quit();
+                                        break;
+                                    case 3:
+                                        UIhandler.sendEmptyMessage(1);
+                                        subhandler.sendEmptyMessage(2);
+                                        break;
+                                    case 2:
+                                        UIhandler.sendEmptyMessage(2);
+                                        socket = mmServerSocket.accept();
+                                        UIhandler.sendEmptyMessage(3);
+                                        if (socket != null) {
+                                            out = new DataOutputStream(socket.getOutputStream());
+                                            Message Titlemsg = Message.obtain();
+                                            Titlemsg.obj = socket.getRemoteDevice().getName();
+                                            Titlemsg.what = 0;
+                                            UIhandler.sendMessage(Titlemsg);
+                                            new ManageSocket().start();
                                         }
                                         break;
                                 }
@@ -515,14 +548,17 @@ public class MainActivity extends AppCompatActivity {
                             }
                         }
                     };
+                    synchronized (MY_UUID) {
+                        MY_UUID.notify();
+                    }
                     Looper.loop();
+                    break;
                 }
 
             }
             try {
-                if (socket != null) {
-                    socket.close();
-                    socket = null;
+                if (mmServerSocket != null) {
+                    mmServerSocket.close();
                 }
             } catch (Exception e) {
                 Log.i("Conerror", "close socket");
@@ -534,4 +570,3 @@ public class MainActivity extends AppCompatActivity {
 
     }
 }
-

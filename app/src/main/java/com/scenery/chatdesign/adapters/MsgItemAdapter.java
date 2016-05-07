@@ -44,12 +44,19 @@ public class MsgItemAdapter extends BaseAdapter {
     public View getView(int position, View convertView, ViewGroup parent) {
         View resultView = null;
         UserMsg userMsg = (UserMsg) msgArrayList.get(position);
-        
-        if (userMsg.getIsSend()) {
-            resultView = LayoutInflater.from(mContext).inflate(R.layout.send_msg_item, null);
-        } else {
-            resultView = LayoutInflater.from(mContext).inflate(R.layout.receive_msg_item, null);
+
+        switch (userMsg.getMsgType()) {
+            case UserMsg.SEND_MSG:
+                resultView = LayoutInflater.from(mContext).inflate(R.layout.send_msg_item, null);
+                break;
+            case UserMsg.RECEIVE_MSG:
+                resultView = LayoutInflater.from(mContext).inflate(R.layout.receive_msg_item, null);
+                break;
+            case UserMsg.SYSTEM_MSG:
+                resultView = LayoutInflater.from(mContext).inflate(R.layout.system_msg_item, null);
+                break;
         }
+
         TextView text = (TextView) resultView.findViewById(R.id.MsgContent);
         text.setText(userMsg.getContent());
         return resultView;

@@ -4,12 +4,16 @@ package com.scenery.chatdesign.models;
  * Created by Scenery on 2016/4/24.
  */
 public class UserMsg {
-    private String Content;
-    private Boolean isSend;
+    public static final int SEND_MSG = 0;
+    public static final int RECEIVE_MSG = 1;
+    public static final int SYSTEM_MSG = 2;
 
-    public UserMsg(String content, Boolean _isSend) {
+    private String Content;
+    private int MsgType;
+
+    public UserMsg(String content, int type) {
         Content = content;
-        isSend = _isSend;
+        MsgType = type;
     }
 
     public String getContent() {
@@ -20,11 +24,11 @@ public class UserMsg {
         Content = content;
     }
 
-    public Boolean getIsSend() {
-        return isSend;
+    public int getMsgType() {
+        return MsgType;
     }
 
-    public void setIsSend(Boolean _isSend) {
-        isSend = _isSend;
+    public void setMsgType(int type) {
+        MsgType = type;
     }
 }
