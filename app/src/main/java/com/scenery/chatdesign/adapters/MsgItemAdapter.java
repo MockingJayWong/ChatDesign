@@ -1,6 +1,7 @@
 package com.scenery.chatdesign.adapters;
 
 import android.content.Context;
+import android.text.Layout;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,11 +18,12 @@ import java.util.ArrayList;
  */
 public class MsgItemAdapter extends BaseAdapter {
     private ArrayList<UserMsg> msgArrayList = new ArrayList<>();
-    private Context mContext;
+    // private Context mContext;
+    private LayoutInflater mInflater;
 
     public MsgItemAdapter(Context context, ArrayList<UserMsg> list) {
         super();
-        mContext = context;
+        mInflater = LayoutInflater.from(context);
         msgArrayList = list;
     }
 
@@ -42,23 +44,31 @@ public class MsgItemAdapter extends BaseAdapter {
 
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
-        View resultView = null;
-        UserMsg userMsg = (UserMsg) msgArrayList.get(position);
-
-        switch (userMsg.getMsgType()) {
-            case UserMsg.SEND_MSG:
-                resultView = LayoutInflater.from(mContext).inflate(R.layout.send_msg_item, null);
-                break;
-            case UserMsg.RECEIVE_MSG:
-                resultView = LayoutInflater.from(mContext).inflate(R.layout.receive_msg_item, null);
-                break;
-            case UserMsg.SYSTEM_MSG:
-                resultView = LayoutInflater.from(mContext).inflate(R.layout.system_msg_item, null);
-                break;
+        ViewHolder holder = null;
+        UserMsg userMsg = msgArrayList.get(position);
+        if (convertView == null) {
+            holder = new ViewHolder();
+            switch (userMsg.getMsgType()) {
+                case UserMsg.SEND_MSG:
+                    convertView = mInflater.inflate(R.layout.send_msg_item, null);
+                    break;
+                case UserMsg.RECEIVE_MSG:
+                    convertView = mInflater.inflate(R.layout.receive_msg_item, null);
+                    break;
+                case UserMsg.SYSTEM_MSG:
+                    convertView = mInflater.inflate(R.layout.system_msg_item, null);
+                    break;
+            }
+            holder.textView = (TextView) convertView.findViewById(R.id.MsgContent);
+            convertView.setTag(holder);
+        } else {
+            holder = (ViewHolder) convertView.getTag();
         }
+        holder.textView.setText(userMsg.getContent());
+        return convertView;
+    }
 
-        TextView text = (TextView) resultView.findViewById(R.id.MsgContent);
-        text.setText(userMsg.getContent());
-        return resultView;
+    public static class ViewHolder {
+        public TextView textView;
     }
 }
